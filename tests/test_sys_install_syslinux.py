@@ -67,7 +67,7 @@ def test_sys_install_syslinux(tmp_path, iso_file, boot_files):
     p.expect("Enter mirror number \\(.*\\) or URL to add \\(.*\\) \\[1\\] ", timeout=10)
     p.send("\n")
 
-    p.expect("Which SSH server\\? \\(.*\\) \\[openssh\\] ")
+    p.expect("Which SSH server\\? \\(.*\\) \\[openssh\\] ", timeout=20)
     p.send("\n")
 
     p.expect("Which disk\\(s\\) would you like to use\\? \\(.*\\) \\[none\\] ", timeout=10)
@@ -79,7 +79,7 @@ def test_sys_install_syslinux(tmp_path, iso_file, boot_files):
     p.expect("WARNING: Erase the above disk\\(s\\) and continue\\? \\(y/n\\) \\[n\\] ")
     p.send("y\n")
 
-    p.expect(hostname+":~#", timeout=30)
+    p.expect(hostname+":~#", timeout=60)
     p.send("poweroff\n")
     p.expect_exact("Requesting system poweroff", timeout=30)
     p.expect(pexpect.EOF, timeout=5)
