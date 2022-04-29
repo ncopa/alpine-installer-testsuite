@@ -1,8 +1,12 @@
 import os
 import pexpect
+import platform
+
+def iso_arch(iso_file):
+    return os.path.splitext(iso_file)[0].split('-')[-1]
 
 def qemu_prog(iso_file):
-    arch = os.path.splitext(iso_file)[0].split('-')[-1]
+    arch = iso_arch(iso_file)
     if arch == 'x86':
         return "qemu-system-i386"
     return "qemu-system-"+arch
@@ -17,20 +21,38 @@ def test_sys_install_syslinux(tmp_path, iso_file, boot_files):
     diskimg = create_disk_image(tmp_path / "disk.img")
     assert os.path.exists(diskimg) == 1
 
-    qemu_args = ['-nographic', '-enable-kvm',
-            '-cdrom', iso_file,
+    if platform.system() == 'Linux':
+        accel = 'kvm'
+    elif platform.system() == 'Darwin':
+        accel = 'hvf'
+
+    arch = iso_arch(iso_file)
+    if arch == 'x86' or arch == 'x86_64':
+        machine = 'q35'
+        console = 'ttyS0'
+    elif arch == 'aarch64' or arch == 'armv7':
+        machine = 'virt'
+        console = 'ttyAMA0'
+        if platform.system() == 'Darwin':
+            machine = machine+',highmem=off'
+
+    qemu_args = ['-nographic',
+            '-machine', machine+',accel='+accel,
+            '-cpu', 'host',
             '-drive', 'format=raw,file='+str(diskimg),
-            '-kernel', str(boot_files['kernel']),
-            '-initrd', str(boot_files['initrd']),
-            '-append', 'quiet console=ttyS0',
         ]
-    p = pexpect.spawn(qemu_prog(iso_file), qemu_args)
+    p = pexpect.spawn(qemu_prog(iso_file), qemu_args + [
+        '-kernel', str(boot_files['kernel']),
+        '-initrd', str(boot_files['initrd']),
+        '-append', 'quiet console='+console,
+        '-cdrom', iso_file])
+
     p.expect("login:", timeout=30)
     p.send("root\n")
 
     p.timeout = 2
     p.expect("localhost:~#")
-    p.send("export KERNELOPTS='quiet console=ttyS0'\n")
+    p.send("export KERNELOPTS='quiet console="+console+"'\n")
 
     p.expect("localhost:~#")
     p.send("setup-alpine\n")
@@ -64,7 +86,11 @@ def test_sys_install_syslinux(tmp_path, iso_file, boot_files):
     p.expect("HTTP/FTP proxy URL\\?.* \\[none\\] ")
     p.send("\n")
 
-    p.expect("Enter mirror number \\(.*\\) or URL to add \\(.*\\) \\[1\\] ", timeout=10)
+    i = p.expect(["Enter mirror number \\(.*\\) or URL to add \\(.*\\) \\[1\\] ",
+                  "Which NTP client to run\\? \\(.*\\) \\[.*\\] "], timeout=30)
+    if i==1:
+        p.send("\n")
+        p.expect("Enter mirror number \\(.*\\) or URL to add \\(.*\\) \\[1\\] ", timeout=30)
     p.send("\n")
 
     p.expect("Which SSH server\\? \\(.*\\) \\[openssh\\] ", timeout=20)
@@ -86,9 +112,7 @@ def test_sys_install_syslinux(tmp_path, iso_file, boot_files):
     p.send("poweroff\n")
     p.expect(pexpect.EOF, timeout=20)
 
-    p = pexpect.spawn(qemu_prog(iso_file), ['-nographic', '-enable-kvm',
-            '-drive', 'format=raw,file='+str(diskimg),
-        ])
+    p = pexpect.spawn(qemu_prog(iso_file), qemu_args)
 
     p.expect("login:", timeout=30)
     p.send("root\n")
