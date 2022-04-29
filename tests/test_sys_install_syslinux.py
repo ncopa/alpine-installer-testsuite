@@ -7,7 +7,7 @@ def qemu_prog(iso_file):
         return "qemu-system-i386"
     return "qemu-system-"+arch
 
-def create_disk_image(path, size=1024*1024*1024):
+def create_disk_image(path, size=2048*1024*1024):
     with open(path, 'wb') as f:
         f.seek(size-1024)
         f.write(b'\0'*1024)
@@ -76,13 +76,12 @@ def test_sys_install_syslinux(tmp_path, iso_file, boot_files):
     p.expect("How would you like to use it\\? \\(.*\\) \\[.*\\] ")
     p.send("sys\n")
 
-    p.expect("WARNING: Erase the above disk\\(s\\) and continue\\? \\(y/n\\) \\[n\\] ")
+    p.expect("WARNING: Erase the above disk\\(s\\) and continue\\? \\(y/n\\) \\[n\\] ", timeout=10)
     p.send("y\n")
 
     p.expect(hostname+":~#", timeout=60)
     p.send("poweroff\n")
-    p.expect_exact("Requesting system poweroff", timeout=30)
-    p.expect(pexpect.EOF, timeout=5)
+    p.expect(pexpect.EOF, timeout=20)
 
     p = pexpect.spawn(qemu_prog(iso_file), ['-nographic', '-enable-kvm',
             '-drive', 'format=raw,file='+str(diskimg),
@@ -100,5 +99,4 @@ def test_sys_install_syslinux(tmp_path, iso_file, boot_files):
 
     p.expect(hostname+":~#", timeout=3)
     p.send("poweroff\n")
-    p.expect_exact("Requesting system poweroff", timeout=30)
-    p.expect(pexpect.EOF, timeout=5)
+    p.expect(pexpect.EOF, timeout=20)
