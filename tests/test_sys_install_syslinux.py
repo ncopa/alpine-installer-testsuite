@@ -70,8 +70,11 @@ def test_sys_install_syslinux(tmp_path, iso_file, boot_files):
     p.expect("Which SSH server\\? \\(.*\\) \\[openssh\\] ", timeout=20)
     p.send("\n")
 
-    p.expect("Which disk\\(s\\) would you like to use\\? \\(.*\\) \\[none\\] ", timeout=10)
-    p.send("sda\n")
+    disks = ['sda', 'sdb','vda','vdb']
+    i = p.expect(disks, timeout=10)
+
+    p.expect("Which disk\\(s\\) would you like to use\\? \\(.*\\) \\[none\\] ")
+    p.send(disks[i] + "\n")
 
     p.expect("How would you like to use it\\? \\(.*\\) \\[.*\\] ")
     p.send("sys\n")
