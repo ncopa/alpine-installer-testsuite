@@ -2,6 +2,7 @@
 import os
 import pexpect
 import platform
+import pytest
 
 def iso_arch(iso_file):
     return os.path.splitext(iso_file)[0].split('-')[-1]
@@ -78,7 +79,8 @@ def test_setup_alpine_quick(tmp_path, iso_file, boot_files, alpine_conf_iso):
     p.expect(pexpect.EOF, timeout=20)
 
 
-def test_sys_install(tmp_path, iso_file, boot_files, alpine_conf_iso):
+@pytest.mark.parametrize('rootfs', ['ext4', 'xfs', 'btrfs'])
+def test_sys_install(tmp_path, iso_file, boot_files, alpine_conf_iso, rootfs):
     assert iso_file != None
     diskimg = create_disk_image(tmp_path / "disk.img")
     assert os.path.exists(diskimg) == 1
@@ -107,6 +109,7 @@ def test_sys_install(tmp_path, iso_file, boot_files, alpine_conf_iso):
         p.expect("localhost:~#")
 
     p.send("export KERNELOPTS='quiet console="+console+"'\n")
+    p.send("export ROOTFS="+rootfs+"\n")
 
     p.expect("localhost:~#")
     p.send("setup-alpine\n")
@@ -176,7 +179,7 @@ def test_sys_install(tmp_path, iso_file, boot_files, alpine_conf_iso):
 
     p.expect(hostname+":~#", timeout=3)
     p.send('awk \'$2 == "/" {print $3}\' /proc/mounts '+"\n")
-    p.expect_exact("ext4")
+    p.expect_exact(rootfs)
 
     p.expect(hostname+":~#", timeout=3)
     p.send("apk info | grep linux-firmware\n")
