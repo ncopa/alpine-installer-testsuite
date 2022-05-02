@@ -1,3 +1,4 @@
+
 import os
 import pexpect
 import platform
@@ -17,7 +18,8 @@ def create_disk_image(path, size=2048*1024*1024):
         f.write(b'\0'*1024)
     return path
 
-def test_sys_install_syslinux(tmp_path, iso_file, boot_files):
+def test_sys_install_syslinux(tmp_path, iso_file, boot_files, alpine_conf_iso):
+    assert iso_file != None
     diskimg = create_disk_image(tmp_path / "disk.img")
     assert os.path.exists(diskimg) == 1
 
@@ -41,17 +43,26 @@ def test_sys_install_syslinux(tmp_path, iso_file, boot_files):
             '-cpu', 'host',
             '-drive', 'format=raw,file='+str(diskimg),
         ]
+    alpine_conf_args=[]
+    if alpine_conf_iso != None:
+        alpine_conf_args = ['-drive', 'file='+alpine_conf_iso]
+
     p = pexpect.spawn(qemu_prog(iso_file), qemu_args + [
         '-kernel', str(boot_files['kernel']),
         '-initrd', str(boot_files['initrd']),
         '-append', 'quiet console='+console,
-        '-cdrom', iso_file])
+        '-cdrom', iso_file] + alpine_conf_args)
 
     p.expect("login:", timeout=30)
     p.send("root\n")
 
     p.timeout = 2
     p.expect("localhost:~#")
+    if alpine_conf_iso != None:
+        p.send("mkdir -p /media/ALPINECONF && mount LABEL=ALPINECONF /media/ALPINECONF && cp -r /media/ALPINECONF/* / && echo OK\n")
+        p.expect("OK")
+        p.expect("localhost:~#")
+
     p.send("export KERNELOPTS='quiet console="+console+"'\n")
 
     p.expect("localhost:~#")
