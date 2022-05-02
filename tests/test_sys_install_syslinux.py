@@ -12,17 +12,7 @@ def qemu_prog(iso_file):
         return "qemu-system-i386"
     return "qemu-system-"+arch
 
-def create_disk_image(path, size=2048*1024*1024):
-    with open(path, 'wb') as f:
-        f.seek(size-1024)
-        f.write(b'\0'*1024)
-    return path
-
-def test_sys_install_syslinux(tmp_path, iso_file, boot_files, alpine_conf_iso):
-    assert iso_file != None
-    diskimg = create_disk_image(tmp_path / "disk.img")
-    assert os.path.exists(diskimg) == 1
-
+def qemu_machine_args(iso_file):
     if platform.system() == 'Linux':
         accel = 'kvm'
     elif platform.system() == 'Darwin':
@@ -38,15 +28,68 @@ def test_sys_install_syslinux(tmp_path, iso_file, boot_files, alpine_conf_iso):
         if platform.system() == 'Darwin':
             machine = machine+',highmem=off'
 
-    qemu_args = ['-nographic',
-            '-machine', machine+',accel='+accel,
-            '-cpu', 'host',
+    return ['-machine', machine+',accel='+accel, '-cpu', 'host']
+
+def console_for_arch(arch):
+    if arch == 'x86' or arch == 'x86_64':
+        console = 'ttyS0'
+    elif arch == 'aarch64' or arch == 'armv7':
+        console = 'ttyAMA0'
+    return console
+
+def create_disk_image(path, size=1024*1024*1024):
+    with open(path, 'wb') as f:
+        f.seek(size-1024)
+        f.write(b'\0'*1024)
+    return path
+
+def test_setup_alpine_quick(tmp_path, iso_file, boot_files, alpine_conf_iso):
+    assert iso_file != None
+    qemu_args = qemu_machine_args(iso_file) + ['-nographic']
+
+    alpine_conf_args=[]
+    if alpine_conf_iso != None:
+        alpine_conf_args = ['-drive', 'media=cdrom,readonly=on,file='+alpine_conf_iso]
+
+    console = console_for_arch(iso_arch(iso_file))
+    p = pexpect.spawn(qemu_prog(iso_file), qemu_args + [
+        '-kernel', str(boot_files['kernel']),
+        '-initrd', str(boot_files['initrd']),
+        '-append', 'quiet console='+console,
+        '-cdrom', iso_file] + alpine_conf_args)
+
+    p.expect("login:", timeout=30)
+    p.send("root\n")
+
+    p.timeout = 2
+    p.expect("localhost:~#")
+    if alpine_conf_iso != None:
+        p.send("mkdir -p /media/ALPINECONF && mount LABEL=ALPINECONF /media/ALPINECONF && cp -r /media/ALPINECONF/* / && echo OK\n")
+        p.expect("OK")
+        p.expect("localhost:~#")
+
+    p.send("setup-alpine -q 2>/tmp/errors\n")
+
+    p.expect_exact("Select keyboard layout: [none] ")
+    p.send("\n")
+
+    p.expect("alpine:~#", timeout=30)
+    p.send("poweroff\n")
+    p.expect(pexpect.EOF, timeout=20)
+
+
+def test_sys_install(tmp_path, iso_file, boot_files, alpine_conf_iso):
+    assert iso_file != None
+    diskimg = create_disk_image(tmp_path / "disk.img")
+    assert os.path.exists(diskimg) == 1
+    qemu_args = qemu_machine_args(iso_file) + ['-nographic',
             '-drive', 'format=raw,file='+str(diskimg),
         ]
     alpine_conf_args=[]
     if alpine_conf_iso != None:
-        alpine_conf_args = ['-drive', 'file='+alpine_conf_iso]
+        alpine_conf_args = ['-drive', 'media=cdrom,readonly=on,file='+alpine_conf_iso]
 
+    console = console_for_arch(iso_arch(iso_file))
     p = pexpect.spawn(qemu_prog(iso_file), qemu_args + [
         '-kernel', str(boot_files['kernel']),
         '-initrd', str(boot_files['initrd']),
