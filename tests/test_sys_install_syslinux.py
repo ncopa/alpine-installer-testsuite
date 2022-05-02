@@ -179,5 +179,9 @@ def test_sys_install(tmp_path, iso_file, boot_files, alpine_conf_iso):
     p.expect_exact("ext4")
 
     p.expect(hostname+":~#", timeout=3)
+    p.send("apk info | grep linux-firmware\n")
+    p.expect_exact("linux-firmware-none")
+
+    p.expect(hostname+":~#", timeout=3)
     p.send("poweroff\n")
     p.expect(pexpect.EOF, timeout=20)
