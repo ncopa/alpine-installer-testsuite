@@ -41,46 +41,11 @@ def console_for_arch(arch):
         console = 'ttyAMA0'
     return console
 
-def test_setup_alpine_quick(tmp_path, boot_files, alpine_conf_iso):
-    iso_file = boot_files['iso']
-    assert iso_file != None
-    qemu_args = qemu_machine_args(iso_file) + ['-nographic', '-m', '512M', '-smp', '2']
-
-    alpine_conf_args=[]
-    if alpine_conf_iso != None:
-        alpine_conf_args = ['-drive', 'media=cdrom,readonly=on,file='+alpine_conf_iso]
-
-    console = console_for_arch(iso_arch(iso_file))
-    p = pexpect.spawn(qemu_prog(iso_file), qemu_args + [
-        '-kernel', str(boot_files['kernel']),
-        '-initrd', str(boot_files['initrd']),
-        '-append', 'quiet console='+console,
-        '-cdrom', iso_file] + alpine_conf_args)
-
-    p.expect("login:", timeout=30)
-    p.send("root\n")
-
-    p.timeout = 2
-    p.expect("localhost:~#")
-    if alpine_conf_iso != None:
-        p.send("mkdir -p /media/ALPINECONF && mount LABEL=ALPINECONF /media/ALPINECONF && cp -r /media/ALPINECONF/* / && echo OK\n")
-        p.expect("OK")
-        p.expect("localhost:~#")
-
-    p.send("setup-alpine -q 2>/tmp/errors\n")
-
-    p.expect_exact("Select keyboard layout: [none] ")
-    p.send("\n")
-
-    p.expect("alpine:~#", timeout=30)
-    p.send("poweroff\n")
-    p.expect(pexpect.EOF, timeout=20)
-
-
 @pytest.mark.parametrize('rootfs', ['ext4', 'xfs', 'btrfs'])
 @pytest.mark.parametrize('bootmode', ['UEFI', 'bios'])
+@pytest.mark.parametrize('diskmode', ['sys', 'lvmsys', 'crypt'])
 @pytest.mark.parametrize('numdisks', [1])
-def test_sys_install(disk_images, boot_files, alpine_conf_iso, rootfs, bootmode):
+def test_sys_install(disk_images, boot_files, alpine_conf_iso, rootfs, diskmode, bootmode):
     iso_file = boot_files['iso']
     assert iso_file != None
 
@@ -170,16 +135,32 @@ def test_sys_install(disk_images, boot_files, alpine_conf_iso, rootfs, bootmode)
     p.send(disks[i] + "\n")
 
     p.expect("How would you like to use it\\? \\(.*\\) \\[.*\\] ")
-    p.send("sys\n")
+    p.send(diskmode+"\n")
+    if diskmode == "crypt":
+        p.expect("How would you like to use it\\? \\(.*\\) \\[.*\\] ")
+        p.send("sys\n")
+
 
     p.expect("WARNING: Erase the above disk\\(s\\) and continue\\? \\(y/n\\) \\[n\\] ", timeout=10)
     p.send("y\n")
+
+    if diskmode == "crypt":
+        p.expect("Enter passphrase for .*:", timeout=10)
+        p.send(password+"\n")
+        p.expect("Verify passphrase:")
+        p.send(password+"\n")
+        p.expect("Enter passphrase for .*:", timeout=10)
+        p.send(password+"\n")
 
     p.expect(hostname+":~#", timeout=60)
     p.send("poweroff\n")
     p.expect(pexpect.EOF, timeout=20)
 
     p = pexpect.spawn(qemu_prog(iso_file), qemu_args)
+
+    if diskmode == "crypt":
+        p.expect("Enter passphrase for .*:")
+        p.send(password+"\n")
 
     p.expect("login:", timeout=30)
     p.send("root\n")
