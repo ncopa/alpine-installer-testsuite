@@ -7,11 +7,14 @@ import pytest
 def iso_arch(iso_file):
     return os.path.splitext(iso_file)[0].split('-')[-1]
 
-def qemu_prog(iso_file):
+def qemu_arch(iso_file):
     arch = iso_arch(iso_file)
     if arch == 'x86':
-        return "qemu-system-i386"
-    return "qemu-system-"+arch
+        return "i386"
+    return arch
+
+def qemu_prog(iso_file):
+    return "qemu-system-"+qemu_arch(iso_file)
 
 def qemu_machine_args(iso_file):
     if platform.system() == 'Linux':
@@ -46,7 +49,7 @@ def create_disk_image(path, size=1024*1024*1024):
 
 def test_setup_alpine_quick(tmp_path, iso_file, boot_files, alpine_conf_iso):
     assert iso_file != None
-    qemu_args = qemu_machine_args(iso_file) + ['-nographic']
+    qemu_args = qemu_machine_args(iso_file) + ['-nographic', '-m', '512M', '-smp', '2']
 
     alpine_conf_args=[]
     if alpine_conf_iso != None:
@@ -80,13 +83,19 @@ def test_setup_alpine_quick(tmp_path, iso_file, boot_files, alpine_conf_iso):
 
 
 @pytest.mark.parametrize('rootfs', ['ext4', 'xfs', 'btrfs'])
-def test_sys_install(tmp_path, iso_file, boot_files, alpine_conf_iso, rootfs):
+@pytest.mark.parametrize('bootmode', ['UEFI', 'bios'])
+def test_sys_install(tmp_path, iso_file, boot_files, alpine_conf_iso, rootfs, bootmode):
     assert iso_file != None
     diskimg = create_disk_image(tmp_path / "disk.img")
     assert os.path.exists(diskimg) == 1
     qemu_args = qemu_machine_args(iso_file) + ['-nographic',
+            '-m', '512M',
+            '-smp', '2',
             '-drive', 'format=raw,file='+str(diskimg),
         ]
+    if bootmode == 'UEFI':
+        qemu_args.extend(['-drive', 'if=pflash,format=raw,read-only,file=/usr/share/qemu/edk2-'+qemu_arch(iso_file)+'-code.fd'])
+
     alpine_conf_args=[]
     if alpine_conf_iso != None:
         alpine_conf_args = ['-drive', 'media=cdrom,readonly=on,file='+alpine_conf_iso]
@@ -140,7 +149,7 @@ def test_sys_install(tmp_path, iso_file, boot_files, alpine_conf_iso, rootfs):
     p.expect("Which timezone.*\\[UTC\\] ")
     p.send("\n")
 
-    p.expect("HTTP/FTP proxy URL\\?.* \\[none\\] ")
+    p.expect("HTTP/FTP proxy URL\\?.* \\[none\\] ", timeout=10)
     p.send("\n")
 
     i = p.expect(["Enter mirror number \\(.*\\) or URL to add \\(.*\\) \\[1\\] ",
