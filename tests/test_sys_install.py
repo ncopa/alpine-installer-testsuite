@@ -47,7 +47,8 @@ def create_disk_image(path, size=1024*1024*1024):
         f.write(b'\0'*1024)
     return path
 
-def test_setup_alpine_quick(tmp_path, iso_file, boot_files, alpine_conf_iso):
+def test_setup_alpine_quick(tmp_path, boot_files, alpine_conf_iso):
+    iso_file = boot_files['iso']
     assert iso_file != None
     qemu_args = qemu_machine_args(iso_file) + ['-nographic', '-m', '512M', '-smp', '2']
 
@@ -84,7 +85,8 @@ def test_setup_alpine_quick(tmp_path, iso_file, boot_files, alpine_conf_iso):
 
 @pytest.mark.parametrize('rootfs', ['ext4', 'xfs', 'btrfs'])
 @pytest.mark.parametrize('bootmode', ['UEFI', 'bios'])
-def test_sys_install(tmp_path, iso_file, boot_files, alpine_conf_iso, rootfs, bootmode):
+def test_sys_install(tmp_path, boot_files, alpine_conf_iso, rootfs, bootmode):
+    iso_file = boot_files['iso']
     assert iso_file != None
     diskimg = create_disk_image(tmp_path / "disk.img")
     assert os.path.exists(diskimg) == 1
