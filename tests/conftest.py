@@ -30,7 +30,21 @@ def boot_files(tmpdir_factory, iso_file):
                 initrd = outdir.join(entry.pathname)
                 libarchive.extract.extract_entries([entry])
 
-    return {'kernel': kernel, 'initrd': initrd}
+    return {'kernel': kernel, 'initrd': initrd, 'iso': iso_file}
 
 
+def create_disk_image(path, size=1024*1024*1024):
+    with open(path, 'wb') as f:
+        f.seek(size-1024)
+        f.write(b'\0'*1024)
+    return path
 
+@pytest.fixture
+def disk_images(tmp_path, boot_files, numdisks):
+    if not numdisks:
+        numdisks = 1
+
+    images = []
+    for i in range(numdisks):
+        images.append(create_disk_image(tmp_path / f"disk{i}.img"))
+    return images

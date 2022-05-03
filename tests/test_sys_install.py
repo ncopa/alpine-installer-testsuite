@@ -41,12 +41,6 @@ def console_for_arch(arch):
         console = 'ttyAMA0'
     return console
 
-def create_disk_image(path, size=1024*1024*1024):
-    with open(path, 'wb') as f:
-        f.seek(size-1024)
-        f.write(b'\0'*1024)
-    return path
-
 def test_setup_alpine_quick(tmp_path, boot_files, alpine_conf_iso):
     iso_file = boot_files['iso']
     assert iso_file != None
@@ -85,16 +79,21 @@ def test_setup_alpine_quick(tmp_path, boot_files, alpine_conf_iso):
 
 @pytest.mark.parametrize('rootfs', ['ext4', 'xfs', 'btrfs'])
 @pytest.mark.parametrize('bootmode', ['UEFI', 'bios'])
-def test_sys_install(tmp_path, boot_files, alpine_conf_iso, rootfs, bootmode):
+@pytest.mark.parametrize('numdisks', [1])
+def test_sys_install(disk_images, boot_files, alpine_conf_iso, rootfs, bootmode):
     iso_file = boot_files['iso']
     assert iso_file != None
-    diskimg = create_disk_image(tmp_path / "disk.img")
+
+    diskimg = disk_images[0]
     assert os.path.exists(diskimg) == 1
     qemu_args = qemu_machine_args(iso_file) + ['-nographic',
             '-m', '512M',
             '-smp', '2',
-            '-drive', 'format=raw,file='+str(diskimg),
         ]
+
+    for img in disk_images:
+        qemu_args.extend([ '-drive', 'format=raw,file='+str(img)])
+
     if bootmode == 'UEFI':
         qemu_args.extend(['-drive', 'if=pflash,format=raw,read-only,file=/usr/share/qemu/edk2-'+qemu_arch(iso_file)+'-code.fd'])
 
