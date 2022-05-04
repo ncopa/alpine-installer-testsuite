@@ -45,7 +45,12 @@ def console_for_arch(arch):
 @pytest.mark.parametrize('bootmode', ['UEFI', 'bios'])
 @pytest.mark.parametrize('diskmode', ['sys', 'lvmsys', 'crypt'])
 @pytest.mark.parametrize('numdisks', [1])
-def test_sys_install(disk_images, boot_files, alpine_conf_iso, rootfs, diskmode, bootmode):
+@pytest.mark.parametrize('disktype', ['virtio', 'ide', 'nvme'])
+def test_sys_install(disk_images, boot_files, alpine_conf_iso, rootfs, disktype, diskmode, bootmode):
+    # fails to boot with UEFI for some reason
+    if disktype == 'nvme' and bootmode == 'UEFI':
+        pytest.skip()
+
     iso_file = boot_files['iso']
     assert iso_file != None
 
@@ -57,7 +62,13 @@ def test_sys_install(disk_images, boot_files, alpine_conf_iso, rootfs, diskmode,
         ]
 
     for img in disk_images:
-        qemu_args.extend([ '-drive', 'format=raw,file='+str(img)])
+        driveid = os.path.splitext(os.path.basename(img))[0]
+        if disktype == 'nvme':
+            qemu_args.extend([ '-drive', f'if=none,id={driveid},format=raw,file={img}',
+                        '-device', f'nvme,serial={driveid},drive={driveid}',
+                        ])
+        else:
+            qemu_args.extend([ '-drive', 'format=raw,file='+str(img)])
 
     if bootmode == 'UEFI':
         qemu_args.extend(['-drive', 'if=pflash,format=raw,read-only,file=/usr/share/qemu/edk2-'+qemu_arch(iso_file)+'-code.fd'])
@@ -78,6 +89,7 @@ def test_sys_install(disk_images, boot_files, alpine_conf_iso, rootfs, diskmode,
 
     p.timeout = 2
     p.expect("localhost:~#")
+
     if alpine_conf_iso != None:
         p.send("mkdir -p /media/ALPINECONF && mount LABEL=ALPINECONF /media/ALPINECONF && cp -r /media/ALPINECONF/* / && echo OK\n")
         p.expect("OK")
@@ -128,7 +140,7 @@ def test_sys_install(disk_images, boot_files, alpine_conf_iso, rootfs, diskmode,
     p.expect("Which SSH server\\? \\(.*\\) \\[openssh\\] ", timeout=20)
     p.send("\n")
 
-    disks = ['sda', 'sdb','vda','vdb']
+    disks = ['sda', 'sdb','vda','vdb', 'nvme0n1', 'nvme1n1']
     i = p.expect(disks, timeout=10)
 
     p.expect("Which disk\\(s\\) would you like to use\\? \\(.*\\) \\[none\\] ")
