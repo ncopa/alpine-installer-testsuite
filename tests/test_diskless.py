@@ -2,32 +2,47 @@
 import os
 import pexpect
 import pytest
+import subprocess
 import sys
 
-@pytest.mark.parametrize('rootfs', ['ext4', 'xfs', 'btrfs'])
 @pytest.mark.parametrize('bootmode', ['UEFI', 'bios'])
-@pytest.mark.parametrize('diskmode', ['sys', 'lvmsys', 'cryptsys'])
-@pytest.mark.parametrize('numdisks', [1, 2])
-@pytest.mark.parametrize('disktype', ['virtio', 'ide', 'nvme'])
-def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode):
-    # fails to boot with UEFI for some reason
-    if disktype == 'nvme' and bootmode == 'UEFI':
-        pytest.skip()
-
+@pytest.mark.parametrize('numdisks', [1])
+@pytest.mark.parametrize('disktype', ['virtio', 'ide', 'nvme', 'usb'])
+@pytest.mark.parametrize('fstype', ['vfat', 'ext4'])
+def test_diskless(qemu, alpine_conf_iso, disktype, bootmode, fstype):
     qemu_args = qemu.machine_args + [
             '-nographic',
             '-m', '512M',
             '-smp', '2',
+            '-kernel', qemu.boot['kernel'],
+            '-initrd', qemu.boot['initrd'],
+            '-append', 'quiet console='+qemu.console,
+            '-cdrom', qemu.boot['iso'],
         ]
+
+    labelopts = ['-L', 'APKOVL']
+    if fstype == 'vfat':
+        labelopts = ['-n', 'APKOVL']
 
     for img in qemu.images:
         driveid = os.path.splitext(os.path.basename(img))[0]
         if disktype == 'nvme':
-            qemu_args.extend([ '-drive', f'if=none,id={driveid},format=raw,file={img}',
-                        '-device', f'nvme,serial={driveid},drive={driveid}',
-                        ])
+            qemu_args.extend([
+                '-drive', f'if=none,id={driveid},format=raw,file={img}',
+                '-device', f'nvme,serial={driveid},drive={driveid}'
+                ])
+        elif disktype == 'usb':
+            qemu_args.extend([
+                '-drive', f'if=none,id={driveid},format=raw,file={img}',
+                '-device', 'qemu-xhci',
+                '-device', f'usb-storage,drive={driveid}',
+                ])
         else:
             qemu_args.extend([ '-drive', f'if={disktype},format=raw,file={img}'])
+        cmd = subprocess.run(['mkfs.'+fstype] + labelopts + [img])
+        assert cmd.returncode == 0
+        # only create label on the first
+        labelopts=[]
 
     if bootmode == 'UEFI':
         qemu_args.extend(['-drive', 'if=pflash,format=raw,readonly=on,file='+qemu.uefi_code])
@@ -36,11 +51,7 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     if alpine_conf_iso != None:
         alpine_conf_args = ['-drive', 'media=cdrom,readonly=on,file='+alpine_conf_iso]
 
-    p = pexpect.spawn(qemu.prog, qemu_args + [
-        '-kernel', qemu.boot['kernel'],
-        '-initrd', qemu.boot['initrd'],
-        '-append', 'quiet console='+qemu.console,
-        '-cdrom', qemu.boot['iso']] + alpine_conf_args)
+    p = pexpect.spawn(qemu.prog, qemu_args + alpine_conf_args)
 
 #    p.logfile = sys.stdout.buffer
 
@@ -55,10 +66,6 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
         p.expect("OK")
         p.expect("localhost:~#")
 
-    p.send("export KERNELOPTS='quiet console="+qemu.console+"'\n")
-    p.send("export ROOTFS="+rootfs+"\n")
-
-    p.expect("localhost:~#")
     p.send("setup-alpine\n")
 
     p.expect_exact("Select keyboard layout: [none] ")
@@ -100,45 +107,27 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.expect("Which SSH server\\? \\(.*\\) \\[openssh\\] ", timeout=20)
     p.send("\n")
 
-    disks = ['sda', 'sdb','vda','vdb', 'nvme0n1', 'nvme1n1']
-    i = p.expect(disks, timeout=10)
-
     p.expect("Which disk\\(s\\) would you like to use\\? \\(.*\\) \\[none\\] ")
-    if len(qemu.images) == 2:
-        d = {'ide': "sda sdb", 'virtio': "vda vdb", 'nvme': "nvme0n1 nvme1n1" }
-        p.send(d[disktype]+"\n")
-    else:
-        p.send(disks[i] + "\n")
+    p.send("none\n")
 
-    p.expect("How would you like to use (it|them)\\? \\(.*\\) \\[.*\\] ")
-    p.send(diskmode+"\n")
-    if diskmode == "crypt":
-        p.expect("How would you like to use (it|them)\\? \\(.*\\) \\[.*\\] ")
-        p.send("sys\n")
+    p.expect("Enter where to store configs \\(.*\\) \\[LABEL=APKOVL\\] ")
+    p.send("\n")
 
+    p.expect("Enter apk cache directory \\(.*\\) \\[.*\\] ")
+    p.send("\n")
 
-    p.expect("WARNING: Erase the above disk\\(s\\) and continue\\? \\(y/n\\) \\[n\\] ", timeout=10)
-    p.send("y\n")
+    p.expect(hostname+":~#")
+    p.send("grep ^LABEL=APKOVL /etc/fstab\n")
+    p.expect("LABEL=APKOVL")
 
-    if diskmode == "crypt" or diskmode == "cryptsys":
-        p.expect("Enter passphrase for .*:", timeout=10)
-        p.send(password+"\n")
-        p.expect("Verify passphrase:")
-        p.send(password+"\n")
-        p.expect("Enter passphrase for .*:", timeout=30)
-        p.send(password+"\n")
+    p.expect(hostname+":~#")
+    p.send("lbu commit\n")
 
-    p.expect(hostname+":~#", timeout=60)
-    p.send("cat /proc/mdstat\n")
     p.expect(hostname+":~#")
     p.send("poweroff\n")
-    p.expect(pexpect.EOF, timeout=60)
+    p.expect(pexpect.EOF, timeout=10)
 
     p = pexpect.spawn(qemu.prog, qemu_args)
-
-    if diskmode == "crypt" or diskmode == "cryptsys":
-        p.expect("Enter passphrase for .*:")
-        p.send(password+"\n")
 
     p.expect("login:", timeout=60)
     p.send("root\n")
@@ -147,16 +136,9 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.send(password+"\n")
 
     p.expect(hostname+":~#", timeout=3)
-    p.send('awk \'$2 == "/" {print $3}\' /proc/mounts '+"\n")
-    p.expect_exact(rootfs)
-
-    p.expect(hostname+":~#", timeout=3)
-    p.send("apk info | grep linux-firmware\n")
-    p.expect_exact("linux-firmware-none")
-
-    p.expect(hostname+":~#", timeout=3)
     p.send("poweroff\n")
     p.expect(pexpect.EOF, timeout=20)
 
     for img in qemu.images:
         os.unlink(img)
+
