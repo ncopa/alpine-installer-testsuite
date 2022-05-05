@@ -3,6 +3,7 @@ import os
 import pexpect
 import platform
 import pytest
+import sys
 
 def iso_arch(iso_file):
     return os.path.splitext(iso_file)[0].split('-')[-1]
@@ -43,8 +44,8 @@ def console_for_arch(arch):
 
 @pytest.mark.parametrize('rootfs', ['ext4', 'xfs', 'btrfs'])
 @pytest.mark.parametrize('bootmode', ['UEFI', 'bios'])
-@pytest.mark.parametrize('diskmode', ['sys', 'lvmsys', 'crypt'])
-@pytest.mark.parametrize('numdisks', [1])
+@pytest.mark.parametrize('diskmode', ['sys', 'lvmsys', 'cryptsys'])
+@pytest.mark.parametrize('numdisks', [1, 2])
 @pytest.mark.parametrize('disktype', ['virtio', 'ide', 'nvme'])
 def test_sys_install(disk_images, boot_files, alpine_conf_iso, rootfs, disktype, diskmode, bootmode):
     # fails to boot with UEFI for some reason
@@ -54,8 +55,6 @@ def test_sys_install(disk_images, boot_files, alpine_conf_iso, rootfs, disktype,
     iso_file = boot_files['iso']
     assert iso_file != None
 
-    diskimg = disk_images[0]
-    assert os.path.exists(diskimg) == 1
     qemu_args = qemu_machine_args(iso_file) + ['-nographic',
             '-m', '512M',
             '-smp', '2',
@@ -68,7 +67,7 @@ def test_sys_install(disk_images, boot_files, alpine_conf_iso, rootfs, disktype,
                         '-device', f'nvme,serial={driveid},drive={driveid}',
                         ])
         else:
-            qemu_args.extend([ '-drive', 'format=raw,file='+str(img)])
+            qemu_args.extend([ '-drive', f'if={disktype},format=raw,file={img}'])
 
     if bootmode == 'UEFI':
         qemu_args.extend(['-drive', 'if=pflash,format=raw,read-only,file=/usr/share/qemu/edk2-'+qemu_arch(iso_file)+'-code.fd'])
@@ -83,6 +82,8 @@ def test_sys_install(disk_images, boot_files, alpine_conf_iso, rootfs, disktype,
         '-initrd', str(boot_files['initrd']),
         '-append', 'quiet console='+console,
         '-cdrom', iso_file] + alpine_conf_args)
+
+#    p.logfile = sys.stdout.buffer
 
     p.expect("login:", timeout=30)
     p.send("root\n")
@@ -144,37 +145,43 @@ def test_sys_install(disk_images, boot_files, alpine_conf_iso, rootfs, disktype,
     i = p.expect(disks, timeout=10)
 
     p.expect("Which disk\\(s\\) would you like to use\\? \\(.*\\) \\[none\\] ")
-    p.send(disks[i] + "\n")
+    if len(disk_images) == 2:
+        d = {'ide': "sda sdb", 'virtio': "vda vdb", 'nvme': "nvme0n1 nvme1n1" }
+        p.send(d[disktype]+"\n")
+    else:
+        p.send(disks[i] + "\n")
 
-    p.expect("How would you like to use it\\? \\(.*\\) \\[.*\\] ")
+    p.expect("How would you like to use (it|them)\\? \\(.*\\) \\[.*\\] ")
     p.send(diskmode+"\n")
     if diskmode == "crypt":
-        p.expect("How would you like to use it\\? \\(.*\\) \\[.*\\] ")
+        p.expect("How would you like to use (it|them)\\? \\(.*\\) \\[.*\\] ")
         p.send("sys\n")
 
 
     p.expect("WARNING: Erase the above disk\\(s\\) and continue\\? \\(y/n\\) \\[n\\] ", timeout=10)
     p.send("y\n")
 
-    if diskmode == "crypt":
+    if diskmode == "crypt" or diskmode == "cryptsys":
         p.expect("Enter passphrase for .*:", timeout=10)
         p.send(password+"\n")
         p.expect("Verify passphrase:")
         p.send(password+"\n")
-        p.expect("Enter passphrase for .*:", timeout=10)
+        p.expect("Enter passphrase for .*:", timeout=30)
         p.send(password+"\n")
 
     p.expect(hostname+":~#", timeout=60)
+    p.send("cat /proc/mdstat\n")
+    p.expect(hostname+":~#")
     p.send("poweroff\n")
-    p.expect(pexpect.EOF, timeout=20)
+    p.expect(pexpect.EOF, timeout=60)
 
     p = pexpect.spawn(qemu_prog(iso_file), qemu_args)
 
-    if diskmode == "crypt":
+    if diskmode == "crypt" or diskmode == "cryptsys":
         p.expect("Enter passphrase for .*:")
         p.send(password+"\n")
 
-    p.expect("login:", timeout=30)
+    p.expect("login:", timeout=60)
     p.send("root\n")
 
     p.expect("Password:", timeout=3)
@@ -191,3 +198,6 @@ def test_sys_install(disk_images, boot_files, alpine_conf_iso, rootfs, disktype,
     p.expect(hostname+":~#", timeout=3)
     p.send("poweroff\n")
     p.expect(pexpect.EOF, timeout=20)
+
+    for img in disk_images:
+        os.unlink(img)
