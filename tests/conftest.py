@@ -68,7 +68,13 @@ class QemuVM:
 
         self.machine_args = ['-machine', self.machine+',accel='+self.accel+highmemopt, '-cpu', 'host']
         self.prog = "qemu-system-"+self.arch
-        self.uefi_code = '/usr/share/qemu/edk2-'+self.arch+'-code.fd'
+
+        if platform.system() == 'Darwin':
+            edk2_path = '/opt/homebrew/share/qemu'
+        else:
+            edk2_path = '/usr/share/qemu'
+
+        self.uefi_code = edk2_path+'/edk2-'+self.arch+'-code.fd'
 
         self.images = []
         for i in range(numdisks):
