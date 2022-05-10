@@ -10,13 +10,16 @@ import sys
 @pytest.mark.parametrize('disktype', ['virtio', 'ide', 'nvme', 'usb'])
 @pytest.mark.parametrize('fstype', ['vfat', 'ext4'])
 def test_diskless(qemu, alpine_conf_iso, disktype, bootmode, fstype):
+    if (disktype == 'ide' or bootmode == 'bios') and (qemu.arch == 'aarch64' or qemu.arch == 'arm'):
+        pytest.skip("not supported on this architecture")
+
     qemu_args = qemu.machine_args + [
             '-nographic',
             '-m', '512M',
             '-smp', '2',
             '-kernel', qemu.boot['kernel'],
             '-initrd', qemu.boot['initrd'],
-            '-append', 'quiet console='+qemu.console,
+            '-append', 'quiet usbdelay=2 console='+qemu.console,
             '-cdrom', qemu.boot['iso'],
         ]
 
@@ -39,7 +42,11 @@ def test_diskless(qemu, alpine_conf_iso, disktype, bootmode, fstype):
                 ])
         else:
             qemu_args.extend([ '-drive', f'if={disktype},format=raw,file={img}'])
-        cmd = subprocess.run(['mkfs.'+fstype] + labelopts + [img])
+        try:
+            cmd = subprocess.run(['mkfs.'+fstype] + labelopts + [img])
+        except FileNotFoundError:
+            pytest.skip('mkfs.'+fstype+' not found')
+
         assert cmd.returncode == 0
         # only create label on the first
         labelopts=[]
