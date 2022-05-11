@@ -100,6 +100,11 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.expect("Which SSH server\\? \\(.*\\) \\[openssh\\] ", timeout=20)
     p.send("\n")
 
+    i = p.expect(["Allow root ssh login\\? \\(.*\\) \\[.*\\] ", "Available disks are"])
+    if i == 0:
+        p.send("\n")
+        p.expect("Available disks are")
+
     disks = ['sda', 'sdb','vda','vdb', 'nvme0n1', 'nvme1n1']
     i = p.expect(disks, timeout=10)
 

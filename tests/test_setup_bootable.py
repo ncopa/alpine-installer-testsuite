@@ -171,6 +171,11 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
     p.expect("Which SSH server\\? \\(.*\\) \\[openssh\\] ", timeout=20)
     p.send("\n")
 
+    i = p.expect(["Allow root ssh login\\? \\(.*\\) \\[.*\\] ", "Available disks are"])
+    if i == 0:
+        p.send("\n")
+        p.expect("Available disks are")
+
     p.expect("Which disk\\(s\\) would you like to use\\? \\(.*\\) \\[none\\] ")
     p.send("none\n")
 
