@@ -14,7 +14,7 @@ def iso_file(request):
 
 @pytest.fixture(scope='session')
 def alpine_conf_iso(request):
-    return request.config.getoption("--alpine-conf-iso")
+    return os.path.realpath(request.config.getoption("--alpine-conf-iso"))
 
 @pytest.fixture(scope='session')
 def boot_files(tmpdir_factory, iso_file):
