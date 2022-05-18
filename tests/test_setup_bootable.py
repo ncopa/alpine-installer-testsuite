@@ -111,6 +111,8 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
     p.send("mount -t "+fstype+" "+partition+" /mnt\n")
     p.send(f"sed -i -e 's/^APPEND.*/APPEND console={qemu.console}/' /mnt/boot/syslinux/syslinux.cfg\n")
     p.send("cat /mnt/boot/syslinux/syslinux.cfg\n")
+    p.send(f"sed -i -E -e '/^linux/s/console=[^ ]+//g' -e '/^linux/s/$/ console={qemu.console}/' /mnt/boot/grub/grub.cfg\n")
+    p.send("cat /mnt/boot/grub/grub.cfg\n")
     p.send("umount /mnt\n")
     p.send("poweroff\n")
     p.expect(pexpect.EOF, timeout=10)
