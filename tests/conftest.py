@@ -10,7 +10,7 @@ def pytest_addoption(parser):
 
 @pytest.fixture(scope='session')
 def iso_file(request):
-    return request.config.getoption("--iso")
+    return os.path.realpath(request.config.getoption("--iso"))
 
 @pytest.fixture(scope='session')
 def alpine_conf_iso(request):
