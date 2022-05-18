@@ -10,6 +10,9 @@ import sys
 @pytest.mark.parametrize('disktype', ['virtio', 'ide', 'nvme', 'usb'])
 @pytest.mark.parametrize('fstype', ['vfat']) # setup-bootable only support vfat so far
 def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
+    if qemu.arch == 'arm' or qemu.arch == 'aarch64':
+        pytest.skip("ARM is not (yet) supported")
+
     if bootmode == 'UEFI' and disktype == 'nvme':
         pytest.skip("UEFI does not boot from nvme")
 
