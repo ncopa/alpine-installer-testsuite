@@ -14,6 +14,12 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     if disktype == 'nvme' and bootmode == 'UEFI':
         pytest.skip()
 
+    if bootmode == 'bios' and (qemu.arch == 'aarch64' or qemu.arch == 'arm'):
+        pytest.skip("Only UEFI is supported on ARM")
+
+    if disktype == 'ide' and (qemu.arch == 'aarch64' or qemu.arch == 'arm'):
+        pytest.skip("IDE is not supported on ARM")
+
     qemu_args = qemu.machine_args + [
             '-nographic',
             '-m', '512M',
