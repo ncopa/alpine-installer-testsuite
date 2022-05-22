@@ -103,14 +103,13 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
         p.expect("Enter mirror number \\(.*\\) or URL to add \\(.*\\) \\[1\\] ", timeout=30)
     p.send("\n")
 
-    p.expect("Which SSH server\\? \\(.*\\) \\[openssh\\] ", timeout=20)
-    p.send("\n")
+    p.expect("Setup a user")
+    p.send("no\n")
 
-    i = p.expect(["Allow root ssh login\\? \\(.*\\) \\[.*\\] ", "Available disks are"])
-    if i == 0:
-        p.send("\n")
-        p.expect("Available disks are")
+    p.expect("Which ssh server\\? \\(.*\\) \\[openssh\\] ", timeout=20)
+    p.send("none\n")
 
+    p.expect("Available disks are")
     disks = ['sda', 'sdb','vda','vdb', 'nvme0n1', 'nvme1n1']
     i = p.expect(disks, timeout=10)
 
