@@ -173,8 +173,11 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
         p.expect("Enter mirror number \\(.*\\) or URL to add \\(.*\\) \\[1\\] ", timeout=30)
     p.send("\n")
 
-    p.expect("Which SSH server\\? \\(.*\\) \\[openssh\\] ", timeout=20)
-    p.send("\n")
+    p.expect("Setup a user")
+    p.send("no\n")
+
+    p.expect("Which ssh server\\? \\(.*\\) \\[openssh\\] ", timeout=20)
+    p.send("none\n")
 
     i = p.expect(["Allow root ssh login\\? \\(.*\\) \\[.*\\] ", "Available disks are"])
     if i == 0:
