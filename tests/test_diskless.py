@@ -75,11 +75,11 @@ def test_diskless(qemu, alpine_conf_iso, disktype, bootmode, fstype):
 
     p.send("setup-alpine\n")
 
-    p.expect_exact("Select keyboard layout: [none] ")
-    p.send("\n")
+    i = p.expect_exact(["Select keyboard layout: [none] ", "Enter system hostname"])
+    if i == 0:
+        p.send("none\n")
 
     hostname = "alpine"
-    p.expect("Enter system hostname \\(.*\\) \\[.*\\] ")
     p.send(hostname+"\n")
 
     p.expect("Which one do you want to initialize\\?.*\\[eth0\\] ")
