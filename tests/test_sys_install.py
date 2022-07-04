@@ -104,7 +104,15 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.send("\n")
 
     p.expect("Setup a user")
-    p.send("no\n")
+    p.send("juser\n")
+    p.expect("Full name for user juser")
+    p.send("\n")
+    p.expect("New password")
+    p.send(password+"\n")
+    p.expect("Retype password")
+    p.send(password+"\n")
+    p.expect("Enter ssh key or URL for juser")
+    p.send("none\n")
 
     p.expect("Which ssh server\\? \\(.*\\) \\[openssh\\] ", timeout=20)
     p.send("none\n")
@@ -150,26 +158,34 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
 
     p = pexpect.spawn(qemu.prog, qemu_args)
 
+    p.logfile = sys.stdout.buffer
     if diskmode == "crypt" or diskmode == "cryptsys":
         p.expect("Enter passphrase for .*:")
         p.send(password+"\n")
 
     p.expect("login:", timeout=60)
-    p.send("root\n")
+    p.send("juser\n")
 
     p.expect("Password:", timeout=3)
     p.send(password+"\n")
 
-    p.expect(hostname+":~#", timeout=3)
+    p.expect(hostname+":~\\$", timeout=3)
     p.send('awk \'$2 == "/" {print $3}\' /proc/mounts '+"\n")
     p.expect_exact(rootfs)
 
-    p.expect(hostname+":~#", timeout=3)
+    p.expect(hostname+":~\\$", timeout=3)
     p.send("apk info | grep linux-firmware\n")
     p.expect_exact("linux-firmware-none")
 
-    p.expect(hostname+":~#", timeout=3)
-    p.send("poweroff\n")
+    p.expect(hostname+":~\\$", timeout=3)
+    p.send("pwd\n")
+    p.expect_exact("/home/juser")
+
+    p.expect(hostname+":~\\$", timeout=3)
+    p.send("doas poweroff\n")
+    p.expect("doas.*password:")
+    p.send(password+"\n")
+
     p.expect(pexpect.EOF, timeout=20)
 
     for img in qemu.images:
