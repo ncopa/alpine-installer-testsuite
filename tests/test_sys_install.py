@@ -170,6 +170,10 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.send(password+"\n")
 
     p.expect(hostname+":~\\$", timeout=3)
+    # disable echo so we dont get the match the command line we send
+    p.sendline("stty -echo")
+
+    p.expect(hostname+":~\\$", timeout=3)
     p.send('awk \'$2 == "/" {print $3}\' /proc/mounts '+"\n")
     p.expect_exact(rootfs)
 
@@ -180,6 +184,13 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.expect(hostname+":~\\$", timeout=3)
     p.send("pwd\n")
     p.expect_exact("/home/juser")
+
+    # verify that /boot partition is at least 90MB
+    p.expect(hostname+":~\\$", timeout=3)
+    p.sendline("out=$(df -k /boot | awk '$6 == \"/boot\" {print $2}'); [ ${out:-0} -ge 90000 ] && echo OK || { echo FAIL:${out:-0}; }")
+    i = p.expect([r'OK', r'FAIL:\d+[^\d]'])
+    if i != 0:
+        pytest.fail("/boot is less than 90000 kb")
 
     p.expect(hostname+":~\\$", timeout=3)
     p.send("doas poweroff\n")
