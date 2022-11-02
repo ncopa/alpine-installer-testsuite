@@ -112,13 +112,13 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
     p.send("setup-bootable /media/cdrom "+partition+" && echo OK\n")
     p.expect("OK", timeout=10)
     p.send("mount -t "+fstype+" "+partition+" /mnt\n")
-    p.send(f"sed -i -e 's/^APPEND.*/APPEND console={qemu.console}/' /mnt/boot/syslinux/syslinux.cfg\n")
+    p.send(f"sed -i -E -e '/^APPEND/s/modules=[^ ]+( [^-]+)(.*)/console={qemu.console} \\2/' /mnt/boot/syslinux/syslinux.cfg\n")
     p.send("cat /mnt/boot/syslinux/syslinux.cfg\n")
     p.send(f"sed -i -E -e '/^linux/s/console=[^ ]+//g' -e '/^linux/s/$/ console={qemu.console}/' /mnt/boot/grub/grub.cfg\n")
     p.send("cat /mnt/boot/grub/grub.cfg\n")
     p.send("umount /mnt\n")
     p.send("poweroff\n")
-    p.expect(pexpect.EOF, timeout=10)
+    p.expect(pexpect.EOF, timeout=20)
 
     # boot the generated image
     p = pexpect.spawn(qemu.prog, qemu_args + alpine_conf_args)
@@ -127,7 +127,7 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
     p.expect("login:", timeout=30)
     p.send("root\n")
 
-    p.timeout = 2
+    p.timeout = 5
     p.expect("localhost:~#")
 
     if alpine_conf_iso != None:
@@ -147,10 +147,15 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
     p.expect("Which one do you want to initialize\\?.*\\[eth0\\] ")
     p.send("\n")
 
-    p.expect("Ip address for eth0\\?.*\\[.*\\] ")
+    i = p.expect(["Do you want to bridge the interface eth0\\?.*\\[.*\\] ",
+                  "Ip address for eth0\\?.*\\[.*\\] "])
+    if i==0:
+        p.send("no\n")
+        p.expect("Ip address for eth0\\?.*\\[.*\\] ", 30)
+
     p.send("dhcp\n")
 
-    p.expect("Do you want to do any manual network configuration\\? \\(y/n\\) \\[n\\] ")
+    p.expect("Do you want to do any manual network configuration\\? \\(y/n\\) \\[n\\] ", 10)
     p.send("\n")
 
     password = 'testpassword'
@@ -167,10 +172,10 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
     p.send("\n")
 
     i = p.expect(["Enter mirror number \\(.*\\) or URL to add \\(.*\\) \\[1\\] ",
-                  "Which NTP client to run\\? \\(.*\\) \\[.*\\] "], timeout=30)
+                  "Which NTP client to run\\? \\(.*\\) \\[.*\\] "], timeout=40)
     if i==1:
         p.send("\n")
-        p.expect("Enter mirror number \\(.*\\) or URL to add \\(.*\\) \\[1\\] ", timeout=30)
+        p.expect("Enter mirror number \\(.*\\) or URL to add \\(.*\\) \\[1\\] ", timeout=60)
     p.send("\n")
 
     p.expect("Setup a user")
