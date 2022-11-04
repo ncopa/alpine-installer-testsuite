@@ -104,12 +104,17 @@ def test_diskless(qemu, alpine_conf_iso, disktype, bootmode, fstype):
     p.expect("HTTP/FTP proxy URL\\?.* \\[none\\] ", timeout=10)
     p.send("\n")
 
-    i = p.expect(["Enter mirror number \\(.*\\) or URL to add \\(.*\\) \\[1\\] ",
-                  "Which NTP client to run\\? \\(.*\\) \\[.*\\] "], timeout=30)
-    if i==1:
-        p.send("\n")
-        p.expect("Enter mirror number \\(.*\\) or URL to add \\(.*\\) \\[1\\] ", timeout=30)
-    p.send("\n")
+    while True:
+        i = p.expect([r'Which NTP client to run\? \(.*\) \[.*\] ',
+                    r'--More--',
+                    r'Enter mirror number \(.*\) or URL to add \(.*\) \[1\] ',], timeout=30)
+        if i==0: # ntp
+            p.send("\n")
+        elif i==1: # --More --
+            p.send("q\n")
+        else: # prompt for mirror
+            p.send("\n")
+            break
 
     p.expect("Setup a user")
     p.send("no\n")
