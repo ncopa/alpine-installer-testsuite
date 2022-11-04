@@ -187,7 +187,12 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
 
     # verify that /boot partition is at least 90MB
     p.expect(hostname+":~\\$", timeout=3)
-    p.sendline("out=$(df -k /boot | awk '$6 == \"/boot\" {print $2}'); [ ${out:-0} -ge 90000 ] && echo OK || { echo FAIL:${out:-0}; }")
+    p.sendline("df -k /boot")
+    p.expect(hostname+":~\\$", timeout=3)
+    p.sendline("""
+               out=$(df -k /boot | awk '$6 == "/boot" || $6 == "/" {print $2}');
+               [ ${out:-0} -ge 90000 ] && echo OK || { echo FAIL:${out:-0}; }
+               """)
     i = p.expect([r'OK', r'FAIL:\d+[^\d]'])
     if i != 0:
         pytest.fail("/boot is less than 90000 kb")
