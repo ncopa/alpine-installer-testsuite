@@ -144,11 +144,11 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.send("y\n")
 
     if diskmode == "crypt" or diskmode == "cryptsys":
-        p.expect("Enter passphrase for .*:", timeout=10)
+        p.expect("Enter passphrase for .*:", timeout=20)
         p.send(password+"\n")
         p.expect("Verify passphrase:")
         p.send("WRONGPASSWORD\n")
-        p.expect("Enter passphrase for .*:", timeout=10)
+        p.expect("Enter passphrase for .*:", timeout=1)
         p.send(password+"\n")
         p.expect("Verify passphrase:")
         p.send(password+"\n")
