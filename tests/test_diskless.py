@@ -132,7 +132,7 @@ def test_diskless(qemu, alpine_conf_iso, disktype, bootmode, fstype):
     p.send("\n")
 
     p.expect(hostname+":~#")
-    p.send("grep ^LABEL=APKOVL /etc/fstab\n")
+    p.send("grep ^LABEL=APKOVL.*ro /etc/fstab\n")
     p.expect("LABEL=APKOVL")
 
     p.expect(hostname+":~#")
