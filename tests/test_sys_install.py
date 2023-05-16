@@ -9,7 +9,8 @@ import sys
 @pytest.mark.parametrize('diskmode', ['sys', 'lvmsys', 'cryptsys'])
 @pytest.mark.parametrize('numdisks', [1, 2])
 @pytest.mark.parametrize('disktype', ['virtio', 'ide', 'nvme'])
-def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode):
+@pytest.mark.parametrize('disklabel', ['', 'gpt'])
+def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode, disklabel):
     # fails to boot with UEFI for some reason
     if disktype == 'nvme' and bootmode == 'UEFI':
         pytest.skip()
@@ -19,6 +20,9 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
 
     if disktype == 'ide' and (qemu.arch == 'aarch64' or qemu.arch == 'arm'):
         pytest.skip("IDE is not supported on ARM")
+
+    if bootmode == 'UEFI' and disklabel == 'gpt':
+        pytest.skip()
 
     qemu_args = qemu.machine_args + [
             '-nographic',
