@@ -62,13 +62,15 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.timeout = 2
     p.expect("localhost:~#")
 
-    if alpine_conf_iso != None:
+    if alpine_conf_iso is not None:
         p.send("mkdir -p /media/ALPINECONF && mount LABEL=ALPINECONF /media/ALPINECONF && cp -r /media/ALPINECONF/* / && echo OK\n")
         p.expect("OK")
         p.expect("localhost:~#")
 
     p.send("export KERNELOPTS='quiet console="+qemu.console+"'\n")
     p.send("export ROOTFS="+rootfs+"\n")
+    if disklabel != "":
+        p.send("export DISKLABEL="+disklabel+"\n")
 
     p.expect("localhost:~#")
     p.send("setup-alpine\n")
