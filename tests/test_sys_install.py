@@ -109,7 +109,8 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     while True:
         i = p.expect([r'Which NTP client to run\? \(.*\) \[.*\] ',
                       r'--More--',
-                      r'Enter mirror number \(.*\) or URL to add \(.*\) \[1\] ',], timeout=30)
+                      r'Enter mirror number.*or URL.* \[1\] ',],
+                     timeout=30)
         if i == 0:  # ntp
             p.send("\n")
         elif i == 1:  # --More --

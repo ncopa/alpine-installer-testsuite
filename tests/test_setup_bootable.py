@@ -183,7 +183,7 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
     while True:
         i = p.expect([r'Which NTP client to run\? \(.*\) \[.*\] ',
                       r'--More--',
-                      r'Enter mirror number \(.*\) or URL to add \(.*\) \[1\] ',], timeout=30)
+                      r'Enter mirror number.*or URL.* \[1\] ',], timeout=30)
         if i == 0:  # ntp
             p.send("\n")
         elif i == 1:  # --More --
