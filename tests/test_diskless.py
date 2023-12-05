@@ -17,10 +17,7 @@ def test_diskless(qemu, alpine_conf_iso, disktype, bootmode, fstype):
     qemu_args = qemu.machine_args + [
         '-nographic',
         '-m', '512M',
-        '-smp', '2',
-        '-kernel', qemu.boot['kernel'],
-        '-initrd', qemu.boot['initrd'],
-        '-append', 'quiet usbdelay=2 console='+qemu.console,
+        '-smp', '4',
         '-boot', 'd',
         '-cdrom', qemu.boot['iso'],
     ]

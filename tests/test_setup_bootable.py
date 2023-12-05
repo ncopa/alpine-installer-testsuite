@@ -21,7 +21,7 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
     qemu_args = qemu.machine_args + [
         '-nographic',
         '-m', '512M',
-        '-smp', '2',
+        '-smp', '4',
     ]
 
     for img in qemu.images:
@@ -51,9 +51,7 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
             '-drive', 'media=cdrom,readonly=on,file='+alpine_conf_iso]
 
     p = pexpect.spawn(qemu.prog, qemu_args + alpine_conf_args + [
-        '-kernel', qemu.boot['kernel'],
-        '-initrd', qemu.boot['initrd'],
-        '-append', 'quiet console='+qemu.console,
+        '-boot', 'd',
         '-cdrom', qemu.boot['iso'],
     ])
 

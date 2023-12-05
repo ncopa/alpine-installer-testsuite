@@ -28,7 +28,7 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     qemu_args = qemu.machine_args + [
         '-nographic',
         '-m', '512M',
-        '-smp', '2',
+        '-smp', '4',
     ]
 
     for img in qemu.images:
@@ -46,14 +46,12 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
             ['-drive', 'if=pflash,format=raw,readonly=on,file='+qemu.uefi_code])
 
     alpine_conf_args = []
-    if alpine_conf_iso != None:
+    if alpine_conf_iso is not None:
         alpine_conf_args = [
             '-drive', 'media=cdrom,readonly=on,file='+alpine_conf_iso]
 
     p = pexpect.spawn(qemu.prog, qemu_args + [
-        '-kernel', qemu.boot['kernel'],
-        '-initrd', qemu.boot['initrd'],
-        '-append', 'quiet console='+qemu.console,
+        '-boot', 'd',
         '-cdrom', qemu.boot['iso']] + alpine_conf_args)
 
 #    p.logfile = sys.stdout.buffer
@@ -161,9 +159,9 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
         p.send("WRONGPASSWORD\n")
         p.expect("Enter passphrase for .*:", timeout=1)
         p.send(password+"\n")
-        p.expect("Verify passphrase:")
+        p.expect("Verify passphrase:", timeout=1)
         p.send(password+"\n")
-        p.expect("Enter passphrase for .*:", timeout=30)
+        p.expect("Enter passphrase for .*:", timeout=60)
         p.send(password+"\n")
 
     p.expect(hostname+":~#", timeout=60)
