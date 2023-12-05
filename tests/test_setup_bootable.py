@@ -5,10 +5,12 @@ import pytest
 import subprocess
 import sys
 
+
 @pytest.mark.parametrize('bootmode', ['bios', 'UEFI'])
 @pytest.mark.parametrize('numdisks', [1])
 @pytest.mark.parametrize('disktype', ['virtio', 'ide', 'nvme', 'usb'])
-@pytest.mark.parametrize('fstype', ['vfat']) # setup-bootable only support vfat so far
+# setup-bootable only support vfat so far
+@pytest.mark.parametrize('fstype', ['vfat'])
 def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
     if qemu.arch == 'arm' or qemu.arch == 'aarch64':
         pytest.skip("ARM is not (yet) supported")
@@ -17,10 +19,10 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
         pytest.skip("UEFI does not boot from nvme")
 
     qemu_args = qemu.machine_args + [
-            '-nographic',
-            '-m', '512M',
-            '-smp', '2',
-        ]
+        '-nographic',
+        '-m', '512M',
+        '-smp', '2',
+    ]
 
     for img in qemu.images:
         driveid = os.path.splitext(os.path.basename(img))[0]
@@ -28,29 +30,32 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
             qemu_args.extend([
                 '-drive', f'if=none,id={driveid},format=raw,file={img}',
                 '-device', f'nvme,serial={driveid},drive={driveid}'
-                ])
+            ])
         elif disktype == 'usb':
             qemu_args.extend([
                 '-drive', f'if=none,id={driveid},format=raw,file={img}',
                 '-device', 'qemu-xhci',
                 '-device', f'usb-storage,drive={driveid}',
-                ])
+            ])
         else:
-            qemu_args.extend([ '-drive', f'if={disktype},format=raw,file={img}'])
+            qemu_args.extend(
+                ['-drive', f'if={disktype},format=raw,file={img}'])
 
     if bootmode == 'UEFI':
-        qemu_args.extend(['-drive', 'if=pflash,format=raw,readonly=on,file='+qemu.uefi_code])
+        qemu_args.extend(
+            ['-drive', 'if=pflash,format=raw,readonly=on,file='+qemu.uefi_code])
 
-    alpine_conf_args=[]
+    alpine_conf_args = []
     if alpine_conf_iso != None:
-        alpine_conf_args = ['-drive', 'media=cdrom,readonly=on,file='+alpine_conf_iso]
+        alpine_conf_args = [
+            '-drive', 'media=cdrom,readonly=on,file='+alpine_conf_iso]
 
     p = pexpect.spawn(qemu.prog, qemu_args + alpine_conf_args + [
-            '-kernel', qemu.boot['kernel'],
-            '-initrd', qemu.boot['initrd'],
-            '-append', 'quiet console='+qemu.console,
-            '-cdrom', qemu.boot['iso'],
-            ])
+        '-kernel', qemu.boot['kernel'],
+        '-initrd', qemu.boot['initrd'],
+        '-append', 'quiet console='+qemu.console,
+        '-cdrom', qemu.boot['iso'],
+    ])
 
 #    p.logfile = sys.stdout.buffer
 
@@ -112,9 +117,11 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
     p.send("setup-bootable /media/cdrom "+partition+" && echo OK\n")
     p.expect("OK", timeout=10)
     p.send("mount -t "+fstype+" "+partition+" /mnt\n")
-    p.send(f"sed -i -E -e '/^APPEND/s/modules=[^ ]+( [^-]+)(.*)/console={qemu.console} \\2/' /mnt/boot/syslinux/syslinux.cfg\n")
+    p.send(
+        f"sed -i -E -e '/^APPEND/s/modules=[^ ]+( [^-]+)(.*)/console={qemu.console} \\2/' /mnt/boot/syslinux/syslinux.cfg\n")
     p.send("cat /mnt/boot/syslinux/syslinux.cfg\n")
-    p.send(f"sed -i -E -e '/^linux/s/console=[^ ]+//g' -e '/^linux/s/$/ console={qemu.console}/' /mnt/boot/grub/grub.cfg\n")
+    p.send(
+        f"sed -i -E -e '/^linux/s/console=[^ ]+//g' -e '/^linux/s/$/ console={qemu.console}/' /mnt/boot/grub/grub.cfg\n")
     p.send("cat /mnt/boot/grub/grub.cfg\n")
     p.send("umount /mnt\n")
     p.send("poweroff\n")
@@ -137,7 +144,8 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
 
     p.send("setup-alpine\n")
 
-    i = p.expect_exact(["Select keyboard layout: [none] ", "Enter system hostname"])
+    i = p.expect_exact(
+        ["Select keyboard layout: [none] ", "Enter system hostname"])
     if i == 0:
         p.send("none\n")
 
@@ -149,13 +157,14 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
 
     i = p.expect(["Do you want to bridge the interface eth0\\?.*\\[.*\\] ",
                   "Ip address for eth0\\?.*\\[.*\\] "])
-    if i==0:
+    if i == 0:
         p.send("no\n")
         p.expect("Ip address for eth0\\?.*\\[.*\\] ", 30)
 
     p.send("dhcp\n")
 
-    p.expect("Do you want to do any manual network configuration\\? \\(y/n\\) \\[n\\] ", 10)
+    p.expect(
+        "Do you want to do any manual network configuration\\? \\(y/n\\) \\[n\\] ", 10)
     p.send("\n")
 
     password = 'testpassword'
@@ -173,13 +182,13 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
 
     while True:
         i = p.expect([r'Which NTP client to run\? \(.*\) \[.*\] ',
-                    r'--More--',
-                    r'Enter mirror number \(.*\) or URL to add \(.*\) \[1\] ',], timeout=30)
-        if i==0: # ntp
+                      r'--More--',
+                      r'Enter mirror number \(.*\) or URL to add \(.*\) \[1\] ',], timeout=30)
+        if i == 0:  # ntp
             p.send("\n")
-        elif i==1: # --More --
+        elif i == 1:  # --More --
             p.send("q\n")
-        else: # prompt for mirror
+        else:  # prompt for mirror
             p.send("\n")
             break
 
@@ -189,7 +198,8 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
     p.expect("Which ssh server\\? \\(.*\\) \\[openssh\\] ", timeout=20)
     p.send("none\n")
 
-    i = p.expect(["Allow root ssh login\\? \\(.*\\) \\[.*\\] ", "Available disks are"])
+    i = p.expect(
+        ["Allow root ssh login\\? \\(.*\\) \\[.*\\] ", "Available disks are"])
     if i == 0:
         p.send("\n")
         p.expect("Available disks are")
@@ -224,5 +234,3 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
 
     for img in qemu.images:
         os.unlink(img)
-
-

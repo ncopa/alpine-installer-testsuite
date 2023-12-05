@@ -5,6 +5,7 @@ import pytest
 import subprocess
 import sys
 
+
 @pytest.mark.parametrize('bootmode', ['UEFI', 'bios'])
 @pytest.mark.parametrize('numdisks', [1])
 @pytest.mark.parametrize('disktype', ['virtio', 'ide', 'nvme', 'usb'])
@@ -14,14 +15,14 @@ def test_diskless(qemu, alpine_conf_iso, disktype, bootmode, fstype):
         pytest.skip("not supported on this architecture")
 
     qemu_args = qemu.machine_args + [
-            '-nographic',
-            '-m', '512M',
-            '-smp', '2',
-            '-kernel', qemu.boot['kernel'],
-            '-initrd', qemu.boot['initrd'],
-            '-append', 'quiet usbdelay=2 console='+qemu.console,
-            '-cdrom', qemu.boot['iso'],
-        ]
+        '-nographic',
+        '-m', '512M',
+        '-smp', '2',
+        '-kernel', qemu.boot['kernel'],
+        '-initrd', qemu.boot['initrd'],
+        '-append', 'quiet usbdelay=2 console='+qemu.console,
+        '-cdrom', qemu.boot['iso'],
+    ]
 
     labelopts = ['-L', 'APKOVL']
     if fstype == 'vfat':
@@ -33,15 +34,16 @@ def test_diskless(qemu, alpine_conf_iso, disktype, bootmode, fstype):
             qemu_args.extend([
                 '-drive', f'if=none,id={driveid},format=raw,file={img}',
                 '-device', f'nvme,serial={driveid},drive={driveid}'
-                ])
+            ])
         elif disktype == 'usb':
             qemu_args.extend([
                 '-drive', f'if=none,id={driveid},format=raw,file={img}',
                 '-device', 'qemu-xhci',
                 '-device', f'usb-storage,drive={driveid}',
-                ])
+            ])
         else:
-            qemu_args.extend([ '-drive', f'if={disktype},format=raw,file={img}'])
+            qemu_args.extend(
+                ['-drive', f'if={disktype},format=raw,file={img}'])
         try:
             cmd = subprocess.run(['mkfs.'+fstype] + labelopts + [img])
         except FileNotFoundError:
@@ -49,14 +51,16 @@ def test_diskless(qemu, alpine_conf_iso, disktype, bootmode, fstype):
 
         assert cmd.returncode == 0
         # only create label on the first
-        labelopts=[]
+        labelopts = []
 
     if bootmode == 'UEFI':
-        qemu_args.extend(['-drive', 'if=pflash,format=raw,readonly=on,file='+qemu.uefi_code])
+        qemu_args.extend(
+            ['-drive', 'if=pflash,format=raw,readonly=on,file='+qemu.uefi_code])
 
-    alpine_conf_args=[]
+    alpine_conf_args = []
     if alpine_conf_iso != None:
-        alpine_conf_args = ['-drive', 'media=cdrom,readonly=on,file='+alpine_conf_iso]
+        alpine_conf_args = [
+            '-drive', 'media=cdrom,readonly=on,file='+alpine_conf_iso]
 
     p = pexpect.spawn(qemu.prog, qemu_args + alpine_conf_args)
 
@@ -75,7 +79,8 @@ def test_diskless(qemu, alpine_conf_iso, disktype, bootmode, fstype):
 
     p.send("setup-alpine\n")
 
-    i = p.expect_exact(["Select keyboard layout: [none] ", "Enter system hostname"])
+    i = p.expect_exact(
+        ["Select keyboard layout: [none] ", "Enter system hostname"])
     if i == 0:
         p.send("none\n")
 
@@ -88,7 +93,8 @@ def test_diskless(qemu, alpine_conf_iso, disktype, bootmode, fstype):
     p.expect("Ip address for eth0\\?.*\\[.*\\] ")
     p.send("dhcp\n")
 
-    p.expect("Do you want to do any manual network configuration\\? \\(y/n\\) \\[n\\] ")
+    p.expect(
+        "Do you want to do any manual network configuration\\? \\(y/n\\) \\[n\\] ")
     p.send("\n")
 
     password = 'testpassword'
@@ -106,13 +112,13 @@ def test_diskless(qemu, alpine_conf_iso, disktype, bootmode, fstype):
 
     while True:
         i = p.expect([r'Which NTP client to run\? \(.*\) \[.*\] ',
-                    r'--More--',
-                    r'Enter mirror number \(.*\) or URL to add \(.*\) \[1\] ',], timeout=30)
-        if i==0: # ntp
+                      r'--More--',
+                      r'Enter mirror number \(.*\) or URL to add \(.*\) \[1\] ',], timeout=30)
+        if i == 0:  # ntp
             p.send("\n")
-        elif i==1: # --More --
+        elif i == 1:  # --More --
             p.send("q\n")
-        else: # prompt for mirror
+        else:  # prompt for mirror
             p.send("\n")
             break
 
@@ -156,4 +162,3 @@ def test_diskless(qemu, alpine_conf_iso, disktype, bootmode, fstype):
 
     for img in qemu.images:
         os.unlink(img)
-

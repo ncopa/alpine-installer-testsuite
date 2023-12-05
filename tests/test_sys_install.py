@@ -4,6 +4,7 @@ import pexpect
 import pytest
 import sys
 
+
 @pytest.mark.parametrize('rootfs', ['ext4', 'xfs', 'btrfs'])
 @pytest.mark.parametrize('bootmode', ['UEFI', 'bios'])
 @pytest.mark.parametrize('diskmode', ['sys', 'lvmsys', 'cryptsys'])
@@ -25,26 +26,29 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
         pytest.skip()
 
     qemu_args = qemu.machine_args + [
-            '-nographic',
-            '-m', '512M',
-            '-smp', '2',
-        ]
+        '-nographic',
+        '-m', '512M',
+        '-smp', '2',
+    ]
 
     for img in qemu.images:
         driveid = os.path.splitext(os.path.basename(img))[0]
         if disktype == 'nvme':
-            qemu_args.extend([ '-drive', f'if=none,id={driveid},format=raw,file={img}',
-                        '-device', f'nvme,serial={driveid},drive={driveid}',
-                        ])
+            qemu_args.extend(['-drive', f'if=none,id={driveid},format=raw,file={img}',
+                              '-device', f'nvme,serial={driveid},drive={driveid}',
+                              ])
         else:
-            qemu_args.extend([ '-drive', f'if={disktype},format=raw,file={img}'])
+            qemu_args.extend(
+                ['-drive', f'if={disktype},format=raw,file={img}'])
 
     if bootmode == 'UEFI':
-        qemu_args.extend(['-drive', 'if=pflash,format=raw,readonly=on,file='+qemu.uefi_code])
+        qemu_args.extend(
+            ['-drive', 'if=pflash,format=raw,readonly=on,file='+qemu.uefi_code])
 
-    alpine_conf_args=[]
+    alpine_conf_args = []
     if alpine_conf_iso != None:
-        alpine_conf_args = ['-drive', 'media=cdrom,readonly=on,file='+alpine_conf_iso]
+        alpine_conf_args = [
+            '-drive', 'media=cdrom,readonly=on,file='+alpine_conf_iso]
 
     p = pexpect.spawn(qemu.prog, qemu_args + [
         '-kernel', qemu.boot['kernel'],
@@ -71,7 +75,8 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.expect("localhost:~#")
     p.send("setup-alpine\n")
 
-    i = p.expect_exact(["Select keyboard layout: [none] ", "Enter system hostname"])
+    i = p.expect_exact(
+        ["Select keyboard layout: [none] ", "Enter system hostname"])
     if i == 0:
         p.send("none\n")
 
@@ -84,7 +89,8 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.expect("Ip address for eth0\\?.*\\[.*\\] ")
     p.send("dhcp\n")
 
-    p.expect("Do you want to do any manual network configuration\\? \\(y/n\\) \\[n\\] ")
+    p.expect(
+        "Do you want to do any manual network configuration\\? \\(y/n\\) \\[n\\] ")
     p.send("\n")
 
     password = 'testpassword'
@@ -102,13 +108,13 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
 
     while True:
         i = p.expect([r'Which NTP client to run\? \(.*\) \[.*\] ',
-                    r'--More--',
-                    r'Enter mirror number \(.*\) or URL to add \(.*\) \[1\] ',], timeout=30)
-        if i==0: # ntp
+                      r'--More--',
+                      r'Enter mirror number \(.*\) or URL to add \(.*\) \[1\] ',], timeout=30)
+        if i == 0:  # ntp
             p.send("\n")
-        elif i==1: # --More --
+        elif i == 1:  # --More --
             p.send("q\n")
-        else: # prompt for mirror
+        else:  # prompt for mirror
             p.send("\n")
             break
 
@@ -127,12 +133,12 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.send("none\n")
 
     p.expect("Available disks are")
-    disks = ['sda', 'sdb','vda','vdb', 'nvme0n1', 'nvme1n1']
+    disks = ['sda', 'sdb', 'vda', 'vdb', 'nvme0n1', 'nvme1n1']
     i = p.expect(disks, timeout=10)
 
     p.expect("Which disk\\(s\\) would you like to use\\? \\(.*\\) \\[none\\] ")
     if len(qemu.images) == 2:
-        d = {'ide': "sda sdb", 'virtio': "vda vdb", 'nvme': "nvme0n1 nvme1n1" }
+        d = {'ide': "sda sdb", 'virtio': "vda vdb", 'nvme': "nvme0n1 nvme1n1"}
         p.send(d[disktype]+"\n")
     else:
         p.send(disks[i] + "\n")
@@ -143,8 +149,8 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
         p.expect("How would you like to use (it|them)\\? \\(.*\\) \\[.*\\] ")
         p.send("sys\n")
 
-
-    p.expect("WARNING: Erase the above disk\\(s\\) and continue\\? \\(y/n\\) \\[n\\] ", timeout=10)
+    p.expect(
+        "WARNING: Erase the above disk\\(s\\) and continue\\? \\(y/n\\) \\[n\\] ", timeout=10)
     p.send("y\n")
 
     if diskmode == "crypt" or diskmode == "cryptsys":
