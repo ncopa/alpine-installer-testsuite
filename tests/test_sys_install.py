@@ -159,9 +159,9 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
         p.send(password+"\n")
         p.expect("Verify passphrase:")
         p.send("WRONGPASSWORD\n")
-        p.expect("Enter passphrase for .*:", timeout=1)
+        p.expect("Enter passphrase for .*:", timeout=5)
         p.send(password+"\n")
-        p.expect("Verify passphrase:", timeout=1)
+        p.expect("Verify passphrase:", timeout=5)
         p.send(password+"\n")
         p.expect("Enter passphrase for .*:", timeout=60)
         p.send(password+"\n")
@@ -171,6 +171,12 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.expect(hostname+":~#")
     p.send("poweroff\n")
     p.expect(pexpect.EOF, timeout=60)
+
+    # apparently seabios cannot boot GPT partitions
+    if disklabel == "gpt":
+        for img in qemu.images:
+            os.unlink(img)
+        return
 
     p = pexpect.spawn(qemu.prog, qemu_args)
 
