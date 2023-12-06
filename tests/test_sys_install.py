@@ -61,56 +61,57 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.sendline()
 
     p.expect("login:", timeout=30)
-    p.send("root\n")
+    p.sendline("root")
 
     p.timeout = 2
     p.expect("localhost:~#")
 
     if alpine_conf_iso is not None:
-        p.send("mkdir -p /media/ALPINECONF && mount LABEL=ALPINECONF /media/ALPINECONF && cp -r /media/ALPINECONF/* / && echo OK\n")
+        p.sendline(
+            "mkdir -p /media/ALPINECONF && mount LABEL=ALPINECONF /media/ALPINECONF && cp -r /media/ALPINECONF/* / && echo OK")
         p.expect("OK")
         p.expect("localhost:~#")
 
-    p.send("export KERNELOPTS='quiet console="+qemu.console+"'\n")
-    p.send("export ROOTFS="+rootfs+"\n")
+    p.sendline("export KERNELOPTS='quiet console="+qemu.console+"'")
+    p.sendline("export ROOTFS="+rootfs)
     if disklabel != "":
-        p.send("export DISKLABEL="+disklabel+"\n")
+        p.sendline("export DISKLABEL="+disklabel)
 
     p.expect("localhost:~#")
-    p.send("setup-alpine\n")
+    p.sendline("setup-alpine")
 
     i = p.expect_exact(
         ["Select keyboard layout: [none] ", "Enter system hostname"])
     if i == 0:
-        p.send("none\n")
+        p.sendline("none")
 
     hostname = "alpine"
-    p.send(hostname+"\n")
+    p.sendline(hostname)
 
     p.expect("Which one do you want to initialize\\?.*\\[eth0\\] ")
-    p.send("\n")
+    p.sendline()
 
     p.expect("Ip address for eth0\\?.*\\[.*\\] ")
-    p.send("dhcp\n")
+    p.sendline("dhcp")
 
     p.expect(
         "Do you want to do any manual network configuration\\? \\(y/n\\) \\[n\\] ")
-    p.send("\n")
+    p.sendline()
 
     password = 'testpassword'
     p.expect("New password: ", timeout=20)
     p.waitnoecho()
-    p.send(password+"\n")
+    p.sendline(password)
 
     p.expect("Retype password: ")
     p.waitnoecho()
-    p.send(password+"\n")
+    p.sendline(password)
 
     p.expect("Which timezone.*\\[UTC\\] ")
-    p.send("\n")
+    p.sendline()
 
     p.expect("HTTP/FTP proxy URL\\?.* \\[none\\] ", timeout=10)
-    p.send("\n")
+    p.sendline()
 
     while True:
         i = p.expect([r'Which NTP client to run\? \(.*\) \[.*\] ',
@@ -118,28 +119,28 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
                       r'Enter mirror number.*or URL.* \[1\] ',],
                      timeout=30)
         if i == 0:  # ntp
-            p.send("\n")
+            p.sendline()
         elif i == 1:  # --More --
-            p.send("q\n")
+            p.sendline("q")
         else:  # prompt for mirror
-            p.send("\n")
+            p.sendline()
             break
 
     p.expect("Setup a user")
-    p.send("juser\n")
+    p.sendline("juser")
     p.expect("Full name for user juser")
-    p.send("\n")
+    p.sendline()
     p.expect("New password")
     p.waitnoecho()
-    p.send(password+"\n")
+    p.sendline(password)
     p.expect("Retype password")
     p.waitnoecho()
-    p.send(password+"\n")
+    p.sendline(password)
     p.expect("Enter ssh key or URL for juser")
-    p.send("none\n")
+    p.sendline("none")
 
     p.expect("Which ssh server\\? \\(.*\\) \\[openssh\\] ", timeout=20)
-    p.send("none\n")
+    p.sendline("none")
 
     p.expect("Available disks are")
     disks = ['sda', 'sdb', 'vda', 'vdb', 'nvme0n1', 'nvme1n1']
@@ -148,44 +149,44 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.expect("Which disk\\(s\\) would you like to use\\? \\(.*\\) \\[none\\] ")
     if len(qemu.images) == 2:
         d = {'ide': "sda sdb", 'virtio': "vda vdb", 'nvme': "nvme0n1 nvme1n1"}
-        p.send(d[disktype]+"\n")
+        p.sendline(d[disktype])
     else:
-        p.send(disks[i] + "\n")
+        p.sendline(disks[i])
 
     p.expect("How would you like to use (it|them)\\? \\(.*\\) \\[.*\\] ")
-    p.send(diskmode+"\n")
+    p.sendline(diskmode)
     if diskmode == "crypt":
         p.expect("How would you like to use (it|them)\\? \\(.*\\) \\[.*\\] ")
-        p.send("sys\n")
+        p.sendline("sys")
 
     p.expect(
         "WARNING: Erase the above disk\\(s\\) and continue\\? \\(y/n\\) \\[n\\] ", timeout=10)
-    p.send("y\n")
+    p.sendline("y")
 
     if diskmode == "crypt" or diskmode == "cryptsys":
         p.expect("Enter passphrase for .*:", timeout=20)
         p.waitnoecho()
-        p.send(password+"\n")
+        p.sendline(password)
         p.expect("Verify passphrase:")
         p.waitnoecho()
-        p.send("WRONGPASSWORD\n")
+        p.sendline("WRONGPASSWORD")
         p.expect("Enter passphrase for .*:", timeout=5)
         p.waitnoecho()
-        p.send(password+"\n")
+        p.sendline(password)
         p.expect("Verify passphrase:", timeout=5)
         p.waitnoecho()
-        p.send(password+"\n")
+        p.sendline(password)
         p.expect_exact(
             "Enter password again to unlock disk for installation.",
             timeout=60)
         p.expect("Enter passphrase for .*:")
         p.waitnoecho()
-        p.send(password+"\n")
+        p.sendline(password)
 
     p.expect(hostname+":~#", timeout=60)
-    p.send("cat /proc/mdstat\n")
+    p.sendline("cat /proc/mdstat")
     p.expect(hostname+":~#")
-    p.send("poweroff\n")
+    p.sendline("poweroff")
     p.expect(pexpect.EOF, timeout=60)
 
     p = pexpect.spawn(qemu.prog, qemu_args)
@@ -195,7 +196,7 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     if diskmode == "crypt" or diskmode == "cryptsys":
         p.expect("Enter passphrase for .*:")
         p.waitnoecho()
-        p.send(password+"\n")
+        p.sendline(password)
 
     i = p.expect(["login:",
                   "No key available with this passphrase."],
@@ -203,26 +204,26 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     if i != 0:
         pytest.fail("Failed to open encrypted disk")
 
-    p.send("juser\n")
+    p.sendline("juser")
 
     p.expect("Password:", timeout=3)
     p.waitnoecho()
-    p.send(password+"\n")
+    p.sendline(password)
 
     p.expect(hostname+":~\\$", timeout=3)
     # disable echo so we dont get the match the command line we send
     p.sendline("stty -echo")
 
     p.expect(hostname+":~\\$", timeout=3)
-    p.send('awk \'$2 == "/" {print $3}\' /proc/mounts '+"\n")
+    p.sendline('awk \'$2 == "/" {print $3}\' /proc/mounts ')
     p.expect_exact(rootfs)
 
     p.expect(hostname+":~\\$", timeout=3)
-    p.send("apk info | grep linux-firmware\n")
+    p.sendline("apk info | grep linux-firmware")
     p.expect_exact("linux-firmware-none")
 
     p.expect(hostname+":~\\$", timeout=3)
-    p.send("pwd\n")
+    p.sendline("pwd")
     p.expect_exact("/home/juser")
 
     # verify that /boot partition is at least 90MB
@@ -238,10 +239,10 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
         pytest.fail("/boot is less than 90000 kb")
 
     p.expect(hostname+":~\\$", timeout=3)
-    p.send("doas poweroff\n")
+    p.sendline("doas poweroff")
     p.expect("doas.*password:")
     p.waitnoecho()
-    p.send(password+"\n")
+    p.sendline(password)
 
     p.expect(pexpect.EOF, timeout=20)
 
