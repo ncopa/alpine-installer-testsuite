@@ -172,12 +172,6 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.send("poweroff\n")
     p.expect(pexpect.EOF, timeout=60)
 
-    # apparently seabios cannot boot GPT partitions
-    if disklabel == "gpt":
-        for img in qemu.images:
-            os.unlink(img)
-        return
-
     p = pexpect.spawn(qemu.prog, qemu_args)
 
     p.logfile = sys.stdout.buffer
@@ -185,7 +179,12 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
         p.expect("Enter passphrase for .*:")
         p.send(password+"\n")
 
-    p.expect("login:", timeout=60)
+    i = p.expect(["login:",
+                  "No key available with this passphrase."],
+                 timeout=60)
+    if i != 0:
+        pytest.fail("Failed to open encrypted disk")
+
     p.send("juser\n")
 
     p.expect("Password:", timeout=3)
