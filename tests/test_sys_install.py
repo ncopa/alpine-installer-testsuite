@@ -55,6 +55,10 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
         '-cdrom', qemu.boot['iso']] + alpine_conf_args)
 
 #    p.logfile = sys.stdout.buffer
+    p.delaybeforesend = None
+
+    p.expect_exact(["boot:", "Press enter to boot the selected OS"])
+    p.sendline()
 
     p.expect("login:", timeout=30)
     p.send("root\n")
@@ -95,9 +99,11 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
 
     password = 'testpassword'
     p.expect("New password: ", timeout=20)
+    p.waitnoecho()
     p.send(password+"\n")
 
     p.expect("Retype password: ")
+    p.waitnoecho()
     p.send(password+"\n")
 
     p.expect("Which timezone.*\\[UTC\\] ")
@@ -124,8 +130,10 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.expect("Full name for user juser")
     p.send("\n")
     p.expect("New password")
+    p.waitnoecho()
     p.send(password+"\n")
     p.expect("Retype password")
+    p.waitnoecho()
     p.send(password+"\n")
     p.expect("Enter ssh key or URL for juser")
     p.send("none\n")
@@ -156,14 +164,22 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
 
     if diskmode == "crypt" or diskmode == "cryptsys":
         p.expect("Enter passphrase for .*:", timeout=20)
+        p.waitnoecho()
         p.send(password+"\n")
         p.expect("Verify passphrase:")
+        p.waitnoecho()
         p.send("WRONGPASSWORD\n")
         p.expect("Enter passphrase for .*:", timeout=5)
+        p.waitnoecho()
         p.send(password+"\n")
         p.expect("Verify passphrase:", timeout=5)
+        p.waitnoecho()
         p.send(password+"\n")
-        p.expect("Enter passphrase for .*:", timeout=60)
+        p.expect_exact(
+            "Enter password again to unlock disk for installation.",
+            timeout=60)
+        p.expect("Enter passphrase for .*:")
+        p.waitnoecho()
         p.send(password+"\n")
 
     p.expect(hostname+":~#", timeout=60)
@@ -173,10 +189,12 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.expect(pexpect.EOF, timeout=60)
 
     p = pexpect.spawn(qemu.prog, qemu_args)
-
+    p.delaybeforesend = None
     p.logfile = sys.stdout.buffer
+
     if diskmode == "crypt" or diskmode == "cryptsys":
         p.expect("Enter passphrase for .*:")
+        p.waitnoecho()
         p.send(password+"\n")
 
     i = p.expect(["login:",
@@ -188,6 +206,7 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.send("juser\n")
 
     p.expect("Password:", timeout=3)
+    p.waitnoecho()
     p.send(password+"\n")
 
     p.expect(hostname+":~\\$", timeout=3)
@@ -221,6 +240,7 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.expect(hostname+":~\\$", timeout=3)
     p.send("doas poweroff\n")
     p.expect("doas.*password:")
+    p.waitnoecho()
     p.send(password+"\n")
 
     p.expect(pexpect.EOF, timeout=20)

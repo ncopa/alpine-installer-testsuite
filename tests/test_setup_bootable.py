@@ -167,9 +167,11 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
 
     password = 'testpassword'
     p.expect("New password: ", timeout=20)
+    p.waitnoecho()
     p.send(password+"\n")
 
     p.expect("Retype password: ")
+    p.waitnoecho()
     p.send(password+"\n")
 
     p.expect("Which timezone.*\\[UTC\\] ")
@@ -224,6 +226,7 @@ def test_setup_bootable(qemu, alpine_conf_iso, disktype, bootmode, fstype):
     p.send("root\n")
 
     p.expect("Password:", timeout=3)
+    p.waitnoecho()
     p.send(password+"\n")
 
     p.expect(hostname+":~#", timeout=3)
