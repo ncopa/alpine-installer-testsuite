@@ -199,9 +199,14 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
         p.sendline(password)
 
     i = p.expect(["login:",
+                  "Start PXE",
                   "No key available with this passphrase."],
                  timeout=60)
-    if i != 0:
+
+    if i == 1:
+        pytest.fail("Failed to boot from disk")
+
+    if i == 2:
         pytest.fail("Failed to open encrypted disk")
 
     p.sendline("juser")
