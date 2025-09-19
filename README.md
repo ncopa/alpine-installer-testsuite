@@ -8,4 +8,11 @@ Requirements:
 - pexpect
 - libachive-c
 
-Usage: pytest -v --iso /path/to/alpine.iso tests/
+```
+usage: pytest -v [--alpine-conf-iso alpine-conf.iso] --iso alpine.iso tests/
+
+options:
+  --alpine-conf-iso  path to ISO with modified alpine-conf generated with
+                     "make iso" in the alpine-conf repo
+  --iso              path to alpine ISO file to test
+```
