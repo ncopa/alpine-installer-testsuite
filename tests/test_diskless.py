@@ -1,9 +1,7 @@
-
 import os
 import pexpect
 import pytest
 import subprocess
-import sys
 
 
 @pytest.mark.parametrize('bootmode', ['UEFI', 'bios'])
