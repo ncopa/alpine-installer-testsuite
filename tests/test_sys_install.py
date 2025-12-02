@@ -19,9 +19,17 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     if disktype == 'ide' and (qemu.arch == 'aarch64' or qemu.arch == 'arm'):
         pytest.skip("IDE is not supported on ARM")
 
+    xen = '-xen-' in qemu.boot['iso']
+    if xen:
+        if disktype == 'virtio':
+            pytest.skip("virtio not supported on Xen")
+        memory = '768M'
+    else:
+        memory = '512M'
+
     qemu_args = qemu.machine_args + [
         '-nographic',
-        '-m', '512M',
+        '-m', memory,
         '-smp', '4',
     ]
 
@@ -85,8 +93,14 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     p.expect("Which one do you want to initialize\\?.*\\[eth0\\] ")
     p.sendline()
 
-    p.expect("Ip address for eth0\\?.*\\[.*\\] ")
-    p.sendline("dhcp")
+    while True:
+        i = p.expect(["Do you want to bridge the interface eth0?",
+                      "Ip address for eth0\\?.*\\[.*\\] "])
+        if i == 0:      # bridge
+            p.sendline("n")
+        elif i == 1:    # ip addr
+            p.sendline("dhcp")
+            break
 
     p.expect(
         "Do you want to do any manual network configuration\\? \\(y/n\\) \\[n\\] ")
@@ -236,6 +250,13 @@ def test_sys_install(qemu, alpine_conf_iso, rootfs, disktype, diskmode, bootmode
     i = p.expect([r'OK', r'FAIL:\d+[^\d]'])
     if i != 0:
         pytest.fail("/boot is less than 90000 kb")
+
+    if xen:
+        p.expect(hostname+":~\\$", timeout=3)
+        p.sendline("test -e /proc/xen && echo OK || echo FAIL")
+        p.expect(['OK', 'FAIL'])
+        if i != 0:
+            pytest.fail("/proc/xen expected to exist")
 
     p.expect(hostname+":~\\$", timeout=3)
     p.sendline("doas poweroff")
